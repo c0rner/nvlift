@@ -33,32 +33,26 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+// Macro returning the number of elements in an array (length)
+#define len(x) (sizeof(x) / sizeof(x[0]))
+
 const char *ENV_NVIM_ADDR="NVIM_LISTEN_ADDRESS";
+const char *NVIM_EXECUTABLES[]={ "nvim", "nvim.appimage" };
+
 enum msg_type{ request, response, notification };
 enum pack_type{ fixintp = 0x00, fixarray=0x90, fixstr=0xa0, str8 = 0xd9 };
+typedef enum { false = 0, true } bool;
 
 void fail_error(char *msg) {
   fprintf(stderr, "error: %s (%s)\n", msg, strerror(errno));
   exit(1);
 }
 
-void fallback(char **argv) {
-  execv(argv[0], argv);
-  // Getting here means exec failed
-  fail_error("exec failed");
-}
-
-int is_unix_socket(char *file) {
+bool is_unix_socket(char *file) {
   struct stat fs;
+  if (file == NULL) return false;
   stat(file, &fs);
   return S_ISSOCK(fs.st_mode);
-}
-
-// for debugging
-void dump(void *buf, int len) {
-  for (int i = 0; i < len; i++) {
-    printf("%x ", ((unsigned char*) buf)[i]);
-  }
 }
 
 // Emit msgpack array of `size` onto `buf`
@@ -114,19 +108,32 @@ int craft_rpc(uint8_t *buf, char *cmd) {
 }
 
 int main(int argc, char **argv) {
-  if (argc<2) {
-    printf("executable path missing");
-    exit(1);
+  bool nested = false;
+
+  // NVIM will set environment variable `NVIM_LISTEN_ADDRESS` on start
+  char *socket_path = getenv(ENV_NVIM_ADDR);
+  if (is_unix_socket(socket_path)) nested=true;
+
+  // If running as a wrapper (ie. not nested) require the first argument
+  // to be an executable path/filename to launch Nvim.
+  if (!nested) {
+    if (argc<3) {
+      // Launched in wrapper mode with one argument, do some guesswork
+      // and try a set of wellknown executable names for Nvim
+      for (int i = 0; i < len(NVIM_EXECUTABLES); i++) {
+        execvp(NVIM_EXECUTABLES[i], argv);
+      }
+      fail_error("missing nvim executable");
+    }
+
+    // The arguments supplied will be passed on to the real Nvim application
+    // and the wrapper executable needs to be dropped from arglist
+    argc--;
+    argv++;
+
+    execvp(argv[0], argv);
+    fail_error("exec failed");
   }
-
-  // Drop executable from arglist
-  argc--;
-  argv++;
-
-  // Check env for NVIM_LISTEN_ADDRESS, if we are in a nvim
-  // session it will be pointing to a RPC unix socket.
-  char *sock_name = getenv(ENV_NVIM_ADDR);
-  if (NULL == sock_name || !is_unix_socket(sock_name)) fallback(argv);
 
   // Create unix socket and connect to named socket
   int sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -134,12 +141,12 @@ int main(int argc, char **argv) {
 
   struct sockaddr_un addr;
   addr.sun_family = AF_UNIX;
-  strncpy(addr.sun_path, sock_name, sizeof(addr.sun_path) - 1);
+  strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
 
   int ret = connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_un));
   if (ret == -1) fail_error("nvim not responding");
 
-  // Build rpc message in temporary buffer
+  // Build rpc message in temporary buffer and send to Nvim
   uint8_t buf[256];
   char command[128];
   snprintf((char*) &command, sizeof(command), "split %s", argv[1]);
