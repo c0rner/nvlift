@@ -2,27 +2,49 @@
 Nvhoist is a minimalistic Nvim wrapper designed to hoist/move nested nvim session from
 within a `terminal` window up into the top level session.
 
-When using `nvim` as a terminal multiplexer this is a common issue and can be of great
-annoyance where nested sessions break things like LSP plugins.
+When using `nvim` as a terminal multiplexer this will be a regular annoyance and usually
+also break things like `lsp` plugins.
 
 ## Installation
-It is recommended to install `nvhoist` as an alias to what you normally start Nvim with.
-Aliasing should be set up so that it is done for any new interactive shell at startup.
+There are two distinct modes `nvhoist` can be run in, "full wrapper" or "nested wrapper".
+They are both fairly simple to configure however nested mode is the recommended only
+becasue it has a better defined scope.
 
-#### Bash example
-This example assumes there already is an alias`vim` for `nvim` and that the target is the
-full executable path.
+### Full wrapper
+In this setup `nvhoist` will alias the `nvim` command with the first argument set to
+the nvim binary name or path.  If not using a full path the file name will be searched
+for in the `PATH` environment variable.
 
-In `~/.bashrc` append the following:
+##### Example (Bash) 
 ``` bash
-# Re-configure alias only if we are inside a running Nvim
+# ~/.bashrc
+# Re-alias `nvim` and `vim`
+alias nvim="nvhoist /path/to/nvim"
+alias vim="nvim"
+```
+
+### Nested wrapper
+This setup has the smallest footprint and is preferred over a full wrapper. It requires
+that the re-aliasing is done for every new interactive shell. For `bash` this is normally
+the `~/.bashrc` file.
+
+#### Example (Bash)
+``` bash
+# ~/.bashrc
+# Re-configure alias only if we are running inside a Nvim session
 if [ -n $NVIM_LISTEN_ADDRESS ]; then
-  alias vim="nvhoist ${BASH_ALIASES[vim]}"
+  alias vim="nvhoist"
 fi
 ```
 
 ## Usage
 N/A
+
+## Compiling
+Compiling `nvhoist` requires that you have a working C99 compiler like `gcc`.
+```
+gcc -Wall -O2 main.c -o nvhoist && strip nvhoist
+```
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
