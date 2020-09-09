@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -108,16 +109,30 @@ int craft_rpc(uint8_t *buf, char *cmd) {
 }
 
 int main(int argc, char **argv) {
-  bool nested = false;
+  char *opt_exec = NULL;
+  bool opt_nested = false;
+  char c;
+
+  // Parse command line options
+  while ((c = getopt (argc, argv, "e:")) != -1)
+    switch (c) {
+      case 'e':
+        opt_exec = optarg;
+        break;
+    }
+
+  argc -= optind;
+  argv = &argv[optind];
 
   // NVIM will set environment variable `NVIM_LISTEN_ADDRESS` on start
+  // verify it is a unix socket and set nested to true
   char *socket_path = getenv(ENV_NVIM_ADDR);
-  if (is_unix_socket(socket_path)) nested=true;
+  if (is_unix_socket(socket_path)) opt_nested=true;
 
   // If running as a wrapper (ie. not nested) require the first argument
   // to be an executable path/filename to launch Nvim.
-  if (!nested) {
-    if (argc<3) {
+  if (!opt_nested) {
+    if (opt_exec == NULL) {
       // Launched in wrapper mode with one argument, do some guesswork
       // and try a set of wellknown executable names for Nvim
       for (int i = 0; i < len(NVIM_EXECUTABLES); i++) {
@@ -128,10 +143,9 @@ int main(int argc, char **argv) {
 
     // The arguments supplied will be passed on to the real Nvim application
     // and the wrapper executable needs to be dropped from arglist
-    argc--;
-    argv++;
+    //argv++;
 
-    execvp(argv[0], argv);
+    execvp(opt_exec, argv);
     fail_error("exec failed");
   }
 
@@ -147,9 +161,9 @@ int main(int argc, char **argv) {
   if (ret == -1) fail_error("nvim not responding");
 
   // Build rpc message in temporary buffer and send to Nvim
-  uint8_t buf[256];
-  char command[128];
-  snprintf((char*) &command, sizeof(command), "split %s", argv[1]);
+  uint8_t buf[512];
+  char command[256];
+  snprintf((char*) &command, sizeof(command), "split %s", argv[0]);
   int len = craft_rpc(buf, command);
   write(sock, buf, len);
 
