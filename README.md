@@ -1,6 +1,6 @@
 # Nvhoist
-Nvhoist is a minimalistic Nvim wrapper designed to hoist/move nested nvim session from
-within a `terminal` window up into the top level session.
+Nvhoist is a minimalistic wrapper for Neovim designed to move nested nvim session from
+within a `:terminal` window up into the top level session.
 
 When using `nvim` as a terminal multiplexer this will be a regular annoyance and usually
 also break things like `lsp` plugins.
