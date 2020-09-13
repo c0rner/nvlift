@@ -129,11 +129,10 @@ int main(int argc, char **argv) {
   char *socket_path = getenv(ENV_NVIM_ADDR);
   if (is_unix_socket(socket_path)) opt_nested=true;
 
-  // If running as a wrapper (ie. not nested) require the first argument
-  // to be an executable path/filename to launch Nvim.
+  // If running as a wrapper (ie. not nested) try any specified executable first
   if (!opt_nested) {
     if (opt_exec == NULL) {
-      // Launched in wrapper mode with one argument, do some guesswork
+      // Launched in wrapper mode with no ececutable set, do some guesswork
       // and try a set of wellknown executable names for Nvim
       for (int i = 0; i < len(NVIM_EXECUTABLES); i++) {
         execvp(NVIM_EXECUTABLES[i], argv);
@@ -141,10 +140,7 @@ int main(int argc, char **argv) {
       fail_error("missing nvim executable");
     }
 
-    // The arguments supplied will be passed on to the real Nvim application
-    // and the wrapper executable needs to be dropped from arglist
-    //argv++;
-
+    // Arguments supplied will be passed on to the real Nvim application
     execvp(opt_exec, argv);
     fail_error("exec failed");
   }
