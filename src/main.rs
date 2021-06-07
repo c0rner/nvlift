@@ -4,79 +4,57 @@
 #![warn(clippy::all)]
 #![deny(missing_docs)]
 
-use argh::FromArgs;
+//use getopts::Options;
 use std::ffi::{OsStr, OsString};
-use std::fs;
-use std::io::Error;
-use std::os::unix::{fs::FileTypeExt, process::CommandExt};
+use std::os::unix::process::CommandExt;
 use std::process::exit;
 use std::{env, process::Command};
+mod nvim_rpc;
 
-/// Environment variable containing full path to NVim socket
+/// Name of NVim env variable containing RPC socket path
 const NVIM_ENV_LISTENADDR: &str = "NVIM_LISTEN_ADDRESS";
-/// Array with well-known executable names for NVim that will
-/// be used for automatic target discovery.
+/// List of well-known executable names for NVim
 const NVIM_EXECUTABLES: &[&str] = &["nvim", "nvim.appimage"];
 
-#[derive(FromArgs)]
-/// Are we nested yet?
-struct Options {
-    #[argh(positional)]
-    args: Vec<OsString>,
-    #[argh(switch)]
-    /// enable debug output
-    debug: bool,
-    #[argh(option, short = 't')]
-    /// wrapped executable
-    target: Option<OsString>,
-}
-
-/// Execute the binary designeted by `path` with `args` as arguments
-fn exec(path: &OsStr, args: &[OsString]) -> Error {
+/// Execute the binary at `path` using `args` for arguments
+fn exec(path: &OsStr, args: &[OsString]) -> impl std::error::Error {
     let mut cmd = Command::new(path);
     cmd.args(args);
     cmd.exec()
 }
 
-/// Test if the file at `path` is a unix socket file
-fn is_socket(path: &OsStr) -> Result<bool, Error> {
-    let meta = fs::metadata(path)?;
-    Ok(meta.file_type().is_socket())
-}
-
 fn main() {
-    let cfg: Options = argh::from_env();
-    let named_sock = env::var_os(NVIM_ENV_LISTENADDR);
+    let args: Vec<OsString> = env::args_os().collect();
 
-    match named_sock {
-        Some(ns) => {
-            println!("Lets do: {:?}", &ns.to_str());
-            match is_socket(ns.as_os_str()) {
-                Ok(socket) => {
-                    println!("Cool, we have socket");
+    println!("args: {:?}", args);
+
+    match env::var_os(NVIM_ENV_LISTENADDR) {
+        None => {
+            // Not a nested NeoVim session, try wrapping target executable
+            if args.len() > 2 && args[1].eq("-e") {
+                exec(&args[2], &args[3..]);
+                return;
+            } else {
+                // No target given, walk the well-known list of executables
+                for target in NVIM_EXECUTABLES.iter() {
+                    exec(OsString::from(&target).as_os_str(), &args[1..]);
                 }
+            }
+            // Getting here means we have exhausted all possible options.
+            // Terminate and return non-zero exit code
+            exit(1);
+        }
+        Some(sockname) => {
+            println!("Nested!");
+            let rpc = match nvim_rpc::connect(&sockname) {
+                Ok(rpc) => rpc,
                 Err(e) => {
-                    println!("socket connect failed: {}", e);
+                    println!("Connect failed {:?} ({})", sockname, e);
                     exit(1);
                 }
             };
-        }
-        None => {
-            // Not a nested session, try wrapper mode
-            match cfg.target {
-                Some(target) => {
-                    exec(&target, &cfg.args);
-                    return;
-                }
-                None => {
-                    // No target given, check the list of executables
-                    for target in NVIM_EXECUTABLES.iter() {
-                        println!("Guessing executable: {}", &target);
-                        exec(OsString::from(&target).as_os_str(), &cfg.args);
-                    }
-                    return;
-                }
-            }
+            rpc.notify(format!("split {}", args[1].to_str().unwrap()).as_str())
+                .expect("failed sending notification to NeoVim");
         }
     }
 }

@@ -5,4 +5,4 @@ authors = ["Martin Akesson <2602099+c0rner@users.noreply.github.com>"]
 edition = "2018"
 
 [dependencies]
-argh = "^0.1.4"
+msgpack_simple = "^1.0.0"
