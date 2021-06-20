@@ -4,7 +4,6 @@
 #![warn(clippy::all)]
 #![deny(missing_docs)]
 
-//use getopts::Options;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::process::CommandExt;
 use std::process::exit;
@@ -26,33 +25,32 @@ fn exec(path: &OsStr, args: &[OsString]) -> impl std::error::Error {
 fn main() {
     let args: Vec<OsString> = env::args_os().collect();
 
-    println!("args: {:?}", args);
-
     match env::var_os(NVIM_ENV_LISTENADDR) {
         None => {
-            // Not a nested NeoVim session, try wrapping target executable
+            // Environment not set, run in wrapper mode
             if args.len() > 2 && args[1].eq("-e") {
-                exec(&args[2], &args[3..]);
+                let e = exec(&args[2], &args[3..]);
+                println!("error: {}", e);
                 return;
             } else {
-                // No target given, walk the well-known list of executables
                 for target in NVIM_EXECUTABLES.iter() {
                     exec(OsString::from(&target).as_os_str(), &args[1..]);
                 }
             }
-            // Getting here means we have exhausted all possible options.
-            // Terminate and return non-zero exit code
+            // Getting here means we have failed launching a target executable,
+            // terminate and return non-zero exit code
             exit(1);
         }
         Some(sockname) => {
-            println!("Nested!");
-            let rpc = match nvim_rpc::connect(&sockname) {
+            let mut rpc = match nvim_rpc::connect(&sockname) {
                 Ok(rpc) => rpc,
                 Err(e) => {
-                    println!("Connect failed {:?} ({})", sockname, e);
+                    println!("failed connecting to rpc socket {:?} ({})", sockname, e);
                     exit(1);
                 }
             };
+            // TODO query CWD from nvim process to correctly provide canonical path
+
             rpc.notify(format!("split {}", args[1].to_str().unwrap()).as_str())
                 .expect("failed sending notification to NeoVim");
         }

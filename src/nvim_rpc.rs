@@ -5,6 +5,7 @@ use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
 pub struct Rpc {
+    // RPC socket used to communicate with NVim
     sock: UnixStream,
 }
 
@@ -13,7 +14,7 @@ impl Rpc {
         Rpc { sock }
     }
 
-    pub fn notify(mut self, cmd: &str) -> Result<()> {
+    pub fn notify(&mut self, cmd: &str) -> Result<()> {
         let message = MsgPack::Array(vec![
             MsgPack::Int(2), // Message type 2 is for notifications
             MsgPack::String(String::from("nvim_command")),
