@@ -1,17 +1,17 @@
-# Nvhoist
-Nvhoist is a minimalistic wrapper for Neovim designed to move nested nvim session from
-within a `:terminal` window up into the top level session.
+# Nvlift
+Nvlift is a minimalistic wrapper for Neovim used to move nested Nvim session from
+within a `:terminal` window up into the top level Nvim session.
 
 When using `nvim` as a terminal multiplexer this will be a regular annoyance and usually
 also break things like `lsp` plugins.
 
 ## Installation
-There are two distinct modes `nvhoist` can be run in, "full wrapper" or "nested wrapper".
+There are two distinct modes `nvlift` can be run in, "full wrapper" or "nested wrapper".
 They are both fairly simple to configure however nested mode is the recommended only
 becasue it has a better defined scope.
 
 ### Full wrapper
-In this setup `nvhoist` will alias the `nvim` command with the first argument set to
+In this setup `nvlift` will alias the `nvim` command with the '-e' switch argument set to
 the nvim binary name or path.  If not using a full path the file name will be searched
 for in the `PATH` environment variable.
 
@@ -19,7 +19,7 @@ for in the `PATH` environment variable.
 ``` bash
 # ~/.bashrc
 # Re-alias `nvim` and `vim`
-alias nvim="nvhoist /path/to/nvim"
+alias nvim="nvlift -e /path/to/nvim"
 alias vim="nvim"
 ```
 
@@ -33,17 +33,8 @@ the `~/.bashrc` file.
 # ~/.bashrc
 # Re-configure alias only if we are running inside a Nvim session
 if [ -n $NVIM_LISTEN_ADDRESS ]; then
-  alias vim="nvhoist"
+  alias vim="nvlift"
 fi
-```
-
-## Usage
-N/A
-
-## Compiling
-Compiling `nvhoist` requires that you have a working C99 compiler like `gcc`.
-```
-gcc -Wall -O2 main.c -o nvhoist && strip nvhoist
 ```
 
 ## Contributing

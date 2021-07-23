@@ -1,0 +1,8 @@
+[package]
+name = "nvlift"
+version = "0.2.0"
+authors = ["Martin Akesson <2602099+c0rner@users.noreply.github.com>"]
+edition = "2018"
+
+[dependencies]
+msgpack_simple = "^1.0.0"
