@@ -4,10 +4,11 @@
 #![warn(clippy::all)]
 #![deny(missing_docs)]
 
+use std::env;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::process::CommandExt;
-use std::process::exit;
-use std::{env, process::Command};
+use std::path::PathBuf;
+use std::process::{exit, Command};
 mod nvim_rpc;
 
 /// Name of NVim env variable containing RPC socket path
@@ -49,10 +50,25 @@ fn main() {
                     exit(1);
                 }
             };
-            // TODO query CWD from nvim process to correctly provide canonical path
 
-            rpc.notify(format!("split {}", args[1].to_str().unwrap()).as_str())
-                .expect("failed sending notification to NeoVim");
+            if args.len() > 1 {
+                let mut path = PathBuf::from(&args[1]);
+                if path.is_relative() {
+                    path = env::current_dir()
+                        .expect("could not get current directory")
+                        .join(path);
+                }
+
+                // TODO error handling
+                let canon = path.parent().unwrap().canonicalize().unwrap();
+                match path.file_name() {
+                    Some(name) => path = canon.join(name),
+                    None => path = canon,
+                }
+
+                rpc.notify(format!("split {}", path.to_str().unwrap()).as_str())
+                    .expect("failed sending notification to NeoVim");
+            }
         }
     }
 }
