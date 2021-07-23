@@ -59,12 +59,16 @@ fn main() {
                         .join(path);
                 }
 
-                // TODO error handling
-                let canon = path.parent().unwrap().canonicalize().unwrap();
-                match path.file_name() {
-                    Some(name) => path = canon.join(name),
-                    None => path = canon,
-                }
+                let path = match path.parent().unwrap().canonicalize() {
+                    Ok(p) => match path.file_name() {
+                        Some(name) => p.join(name),
+                        None => p,
+                    },
+                    Err(e) => {
+                        println!("error: {}", e);
+                        exit(1);
+                    }
+                };
 
                 rpc.notify(format!("split {}", path.to_str().unwrap()).as_str())
                     .expect("failed sending notification to NeoVim");
