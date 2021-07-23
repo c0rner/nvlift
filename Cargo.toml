@@ -1,6 +1,6 @@
 [package]
 name = "nvlift"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Martin Akesson <2602099+c0rner@users.noreply.github.com>"]
 edition = "2018"
 
